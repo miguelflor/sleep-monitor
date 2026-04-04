@@ -1,0 +1,90 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{subcaption}
+
+% Page geometry
+\geometry{
+    a4paper,
+    left=2.5cm,
+    right=2.5cm,
+    top=3cm,
+    bottom=3cm
+}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{IoT \& Mobile Systems (2025/26)}
+\lhead{Sleep Monitor Project}
+\rfoot{Page \thepage}
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    commentstyle=\color{gray},
+    keywordstyle=\color{blue},
+    stringstyle=\color{red}
+}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+\begin{document}
+
+% Title page
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    
+    {\LARGE \textbf{Sistemas de IoT e Móvel}}\\[0.5cm]
+    {\Large 2025/26}\\[2cm]
+    
+    {\Huge \textbf{Sleep Monitor}}\\[1cm]
+    {\LARGE Project Report}\\[3cm]
+    
+    {\Large 
+    Student Name 1 - Student Number\\[0.3cm]
+    Student Name 2 - Student Number\\[0.3cm]
+    % Add more students as needed
+    }\\[2cm]
+    
+    \vfill
+    
+    {\large \today}
+    
+\end{titlepage}
+
+% Table of contents
+\tableofcontents
+\newpage
+
+% Include sections
+\input{sections/01_introduction}
+\input{sections/02_general_overview}
+\input{sections/03_system_architecture}
+\input{sections/04_mobile_application}
+\input{sections/05_sensing_and_reacting}
+\input{sections/06_experiments}
+\input{sections/07_conclusions}
+
+\end{document}
