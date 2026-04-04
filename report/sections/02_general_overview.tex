@@ -10,18 +10,44 @@
 
 \subsection{System Functionalities}
 % Describe functionalities from the end user's perspective
-
+Users can monitor their sleep quality and access sleep-enhancing
+features via bone conduction sound waves. The system displays real-time SpO2​
+levels and heart rate data on a separate device. Since the user is a patient within a facility,
+their doctor also has access to the system. Through a dedicated interface, the doctor can
+monitor all patient stats live and remotely adjust the sound wave frequencies to optimize
+sleep improvement.
 \subsection{Mobile Components}
 % The mobile component(s) and their role in the solution
-
+The system features a sleep-monitoring component in the form of an elastic headband worn by the patient.
+This band monitors heart rate and SpO2​ while simultaneously inducing sleep-enhancing sound waves.
+When the patient goes home, they use a separate device equipped with an LCD screen to display their
+vitals. This second device acts as a gateway; the user simply uses their phone to configure the initial
+Wi-Fi connection.
 \subsection{Server and Cloud Services}
 % The server or cloud services functionalities needed
-
+The infrastructure relies on an MQTT server to ingest real-time statistics from each patient.
+Data is stored in a time-series database for long-term tracking, while a dedicated
+backend and frontend power the application used by doctors to monitor and manage their patients.
 \subsection{IoT and MCU Devices}
 % Types of IoT or MCU devices, their sensors and actuators
-
+The sleep-tracking device is powered by an ESP32 integrated with two primary sensors:
+an MPU-6050 (featuring a 3-axis gyroscope and a 3-axis accelerometer) to monitor patient movement and
+sleep states, and a MAX30102 to track SpO2​ and heart rate. A bone conduction speaker serves as the
+primary actuator for sleep induction. The secondary home device also utilizes an ESP32 and features an
+OLED display as an actuator to visualize the patient's vital signs.
 \subsection{Component Interactions}
 % What components will need to interact/communicate
+The sleep-tracking headband connects to the gateway device via \textbf{Wi-Fi Direct}
+to transmit real-time sensor data. For initial setup, the gateway device pairs with the patient's
+smartphone via \textbf{Bluetooth} to configure local network credentials. Once connected to the internet,
+the gateway uses the \textbf{MQTT} protocol to relay the collected sleep statistics to the central server.
+This creates a bridge where the tracking device sends data to the gateway, which then pushes it to
+the cloud, allowing the doctor's frontend to access the information and send frequency adjustments
+back through the same pipeline.
 
 \subsection{Demonstration Prototype}
 % How many of each component you propose to implement for the demonstration prototype
+While we plan to implement the full application, there are a few hardware limitations to note.
+Due to time constraints, the devices will not yet include integrated batteries. Additionally,
+custom 3D-printed plastic cases still need to be developed to house the components and make the
+devices wearable and user-friendly for clients.
