@@ -1,21 +1,52 @@
 \section{Introduction}
 \label{sec:introduction}
 
-% Present the context of your work and the key problems it addresses, including 
-% the geographic scale, number of users and their different roles.
-% Explain why your IoT system is relevant and useful in a real-world scenario, 
-% as well as the main objectives it aims to achieve.
-
-% TODO: Write introduction
-
 \subsection{Context and Problem Statement}
-% Describe the context and key problems
+
+Sleep disorders and poor sleep quality represent a growing concern in clinical environments,
+particularly for patients undergoing long-term care. Traditional monitoring methods often
+require intrusive equipment or fail to provide real-time, actionable data to healthcare
+providers. Furthermore, existing therapeutic interventions are rarely personalized or adjustable, limiting the ability of medical staff to respond to a
+patient's evolving needs. This project addresses these gaps by developing an integrated
+IoT system that combines passive sleep monitoring with active, non-invasive sound-based
+therapy, all managed through a connected digital platform.
 
 \subsection{Geographic Scale and Users}
-% Describe the geographic scale and different user roles
+
+The system is designed for deployment within medical facilities, such as hospitals or
+sleep clinics, where patients are under the supervision of healthcare professionals.
+At the local level, each patient interacts with two hardware devices: a wearable headband
+worn during sleep and a bedside gateway unit. At the institutional level, doctors and
+nurses access a centralized web application to monitor all patients under their care and
+issue adjustments remotely. The infrastructure is cloud-hosted, allowing it
+to scale across multiple wards or facilities and to support concurrent access by numerous
+medical staff members from any location with internet connectivity.
 
 \subsection{Relevance and Real-World Applications}
-% Explain why the system is relevant and useful
+
+Bone conduction technology offers a non-invasive means of delivering therapeutic audio
+stimulus without disturbing a patient's sleep environment. Combined with
+heart rate and blood oxygen saturation (SpO2), the system
+enables an efficient approach to sleep therapy: data is collected, transmitted to the
+cloud in real time, and visualized by clinicians who can then fine-tune treatment
+parameters remotely. This approach reduces the need for physical intervention during
+nighttime hours, improves the responsiveness of care, and generates longitudinal data
+that can inform future treatment decisions. The system is equally applicable to home-care
+scenarios, where the gateway's Bluethooth configuration via smartphone lowers the barrier to
+autonomous setup by patients.
 
 \subsection{Main Objectives}
-% List the main objectives of the system
+
+The main objectives of this system are as follows:
+\begin{itemize}
+    \item Monitor patient sleep quality in real time through movement, heart rate, and SpO2
+          measurements collected by a wearable ESP32-based headband.
+    \item Deliver personalized, non-invasive sleep therapy via bone conduction sound waves,
+          with frequencies adjustable remotely by a supervising physician.
+    \item Transmit physiological data reliably from the wearable device to the cloud using
+          a Wi-Fi Direct link to a local gateway and the MQTT protocol for server ingestion.
+    \item Provide clinicians with a real-time web dashboard to monitor all patients, review
+          historical trends stored in a time-series database, and issue soundwave adjustments.
+    \item Enable straightforward deployment and configuration through a smartphone-assisted
+          Bluetooth setup of the gateway device.
+\end{itemize}
