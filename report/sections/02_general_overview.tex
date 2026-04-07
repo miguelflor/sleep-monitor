@@ -35,7 +35,7 @@ primary actuator for sleep induction. The secondary home device also utilizes an
 OLED display as an actuator to visualize the patient's vital signs.
 \subsection{Component Interactions}
 % What components will need to interact/communicate
-The sleep-tracking headband connects to the gateway device via \textbf{Wi-Fi Direct}
+The sleep-tracking headband connects to the gateway device via \textbf{ESP-NOW}
 to transmit real-time sensor data. For initial setup, the gateway device pairs with the patient's
 smartphone via \textbf{Bluetooth} to configure local network credentials. Once connected to the internet,
 the gateway uses the \textbf{MQTT} protocol to relay the collected sleep statistics to the central server.
