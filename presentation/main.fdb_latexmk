@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1776000693.44229 "main.tex" "main.pdf" "main" 1776000694.93768 0
+["pdflatex"] 1776004129.41268 "main.tex" "main.pdf" "main" 1776004130.83095 0
   "/etc/texmf/web2c/texmf.cnf" 1757363394.58213 475 c0e671620eb5563b2130f56340a5fde8 ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/fontawesome5/fa5brands0.enc" 1622837620 2920 d63721872b8c77041b88e51b8f7c291d ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/fontawesome5/fa5free0.enc" 1622837620 3083 a707712f77b073b3833e4b1334a30e99 ""
@@ -268,14 +268,14 @@
   "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1760851385.35874 5472669 54eaf61a88b6b7896ebd0dac973cb29c ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1760851449 8213885 f1243ccadb13b869bb40501b1b2f9d96 ""
-  "images/clinical_ward.png" 1776000677.0752 39936 3d8a92f65ed5b8a78cd3856cd78c9507 ""
-  "images/component_layout.png" 1776000677.2252 31518 e03ca9da363b0779bb2bc4daf83336be ""
-  "images/dashboard.png" 1776000677.1602 46396 a55ad453d6832b44e34838ae606986cd ""
-  "images/gateway.png" 1776000676.9802 24463 129d7376cbedf688d457bae39c3dffa9 ""
-  "images/headband.png" 1776000676.8902 33685 d12561c7a23e69acc145cccf0b37cbad ""
-  "main.aux" 1776000694.812 1851 97126c382d6e481c57976def502c453b "pdflatex"
-  "main.nav" 1776000694.813 1202 a971439ba5eedf62b158aa4c3f07763d "pdflatex"
-  "main.out" 1776000694.10501 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
+  "images/clinical_ward.png" 1776004128.45654 31736 aa827b5ce8a4349b55689b4c6dd03487 ""
+  "images/component_layout.png" 1776004128.60454 31518 e03ca9da363b0779bb2bc4daf83336be ""
+  "images/dashboard.png" 1776004128.54154 46396 a55ad453d6832b44e34838ae606986cd ""
+  "images/gateway.png" 1776004128.38654 24463 129d7376cbedf688d457bae39c3dffa9 ""
+  "images/headband.png" 1776004128.28454 33909 a9717e77a5bb44bbf08cb76490d658dd ""
+  "main.aux" 1776004130.71151 1851 97126c382d6e481c57976def502c453b "pdflatex"
+  "main.nav" 1776004130.71151 1202 a971439ba5eedf62b158aa4c3f07763d "pdflatex"
+  "main.out" 1776004130.02152 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
   "main.tex" 1776000692.87702 20012 7eac953b26252b4e9ff583b14534fddf ""
   (generated)
   "main.aux"

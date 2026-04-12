@@ -7,7 +7,8 @@ Run from the presentation/ directory:  python3 generate_images.py
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, Circle, Arc
+from matplotlib.patches import FancyBboxPatch, Circle, Arc, PathPatch, Ellipse
+from matplotlib.path import Path
 import numpy as np
 import os
 
@@ -58,6 +59,31 @@ def dash(ax, x0, y0, x1, y1, color=BLUE, lw=1.2):
             linestyle='dashed', alpha=0.65, zorder=2)
 
 
+def draw_cloud(ax, cx, cy, w, h, fc, zorder=2):
+    """Smooth 3-bump cloud drawn as a single bezier path."""
+    # Normalised vertices in [-0.5, 0.5] × [-0.35, 0.50]
+    # MOVETO + 4×CURVE4 (12 pts) + CLOSEPOLY = 14 entries
+    verts = [
+        (-0.50, -0.30),                              # MOVETO  bottom-left
+        (-0.50,  0.02), (-0.40,  0.30), (-0.24, 0.30),  # left bump
+        (-0.10,  0.30), (-0.13,  0.50), ( 0.00, 0.50),  # up to centre bump
+        ( 0.13,  0.50), ( 0.10,  0.30), ( 0.24, 0.30),  # down to right bump
+        ( 0.40,  0.30), ( 0.50,  0.02), ( 0.50, -0.30), # right side down
+        (-0.50, -0.30),                              # CLOSEPOLY
+    ]
+    codes = [
+        Path.MOVETO,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.CLOSEPOLY,
+    ]
+    scaled = [(cx + x * w, cy + y * h) for x, y in verts]
+    ax.add_patch(PathPatch(Path(scaled, codes),
+                           facecolor=fc, edgecolor='none', zorder=zorder))
+
+
 def arrow(ax, x0, y0, x1, y1, color=BLUE, lw=1.5, rad=0.0, label=None):
     ax.annotate('', xy=(x1, y1), xytext=(x0, y0),
                 arrowprops=dict(arrowstyle='->', color=color, lw=lw,
@@ -71,51 +97,164 @@ def arrow(ax, x0, y0, x1, y1, color=BLUE, lw=1.5, rad=0.0, label=None):
 
 
 # ═════════════════════════════════════════════════════════════
-# 1. HEADBAND DEVICE
+# 1. HEADBAND DEVICE  —  drawsvg illustrated style
 # ═════════════════════════════════════════════════════════════
-fig, ax = new_fig()
+import drawsvg as dw
 
-# Band arc
-theta = np.linspace(np.radians(18), np.radians(162), 120)
-r, bx, by = 3.8, 5.0, 4.2
-xb = bx + r * np.cos(theta)
-yb = by + r * np.sin(theta)
-ax.fill_between(xb, yb - 0.25, yb + 0.25, color=NAVY, alpha=0.15, zorder=1)
-ax.plot(xb, yb, color=NAVY, lw=4, solid_capstyle='round', zorder=2)
+W, H = 520, 560
+d = dw.Drawing(W, H, id_prefix='hb')
 
-# Elastic tails hanging down
-for side in [18, 162]:
-    ex = bx + r * np.cos(np.radians(side))
-    ey = by + r * np.sin(np.radians(side))
-    ax.plot([ex, ex], [ey - 0.05, ey - 1.1],
-            color=NAVY, lw=3, alpha=0.45, solid_capstyle='round')
+# palette
+_NAVY  = '#0B2545'; _TEAL  = '#0D9488'; _BLUE  = '#1E88E5'
+_MID   = '#1565C0'; _AMBER = '#F59E0B'; _WHITE = '#FFFFFF'
+_SKIN  = '#FDDBB4'; _SKND  = '#C9884E'; _HAIR  = '#2C1B0E'
+_BG    = '#F8FAFC'; _LBGE  = '#ECF5FF'
 
-# ESP32 top of band
-chip(ax, 3.25, 8.2, 3.5, 1.2, BLUE, WHITE, 'ESP32', 'MCU + ESP-NOW Radio')
+d.append(dw.Rectangle(0, 0, W, H, fill=_BG))
+d.append(dw.Circle(260, 295, 240, fill=_LBGE))
 
-# MPU-6050 left
-chip(ax, 0.4, 5.6, 2.6, 1.0, NAVY, TEAL, 'MPU-6050', 'Gyro · Accel')
+# ── Head geometry ─────────────────────────────────────
+HCX, HCY = 260, 300   # head centre
+HW,  HH  = 88,  112   # half-width, half-height
 
-# MAX30102 right
-chip(ax, 7.0, 5.6, 2.6, 1.0, NAVY, TEAL, 'MAX30102', 'SpO₂ · HR')
+# ── Shoulders ─────────────────────────────────────────
+sp = dw.Path(fill=_SKIN, stroke=_SKND, stroke_width=1)
+sp.M(HCX-120, H).L(HCX-110, HCY+HH+55).C(HCX-60, HCY+HH+35, HCX-28, HCY+HH+18, HCX-22, HCY+HH+5)
+sp.L(HCX+22, HCY+HH+5).C(HCX+28, HCY+HH+18, HCX+60, HCY+HH+35, HCX+110, HCY+HH+55)
+sp.L(HCX+120, H).Z()
+d.append(sp)
 
-# Bone conduction actuator (bottom)
-ax.add_patch(FancyBboxPatch((3.1, 1.85), 3.8, 1.35,
-                             boxstyle='round,pad=0.1',
-                             facecolor=AMBER + '33', edgecolor=AMBER,
-                             linewidth=1.8, zorder=3))
-ax.text(5.0, 2.72, 'Bone Conduction', color=AMBER, fontsize=7.5,
-        ha='center', va='center', fontweight='bold', zorder=4)
-ax.text(5.0, 2.18, 'Speaker  ·  Actuator', color=AMBER, fontsize=5.5,
-        ha='center', va='center', alpha=0.8, zorder=4)
+# ── Neck ──────────────────────────────────────────────
+d.append(dw.Rectangle(HCX-22, HCY+HH-8, 44, 70, rx=7, ry=7,
+                       fill=_SKIN, stroke=_SKND, stroke_width=1))
 
-# Dashed connections
-dash(ax, 3.5, 8.2, 2.7, 6.6)
-dash(ax, 6.5, 8.2, 7.3, 6.6)
-dash(ax, 5.0, 8.2, 5.0, 3.2)
+# ── Ears ──────────────────────────────────────────────
+for sx in [-1, 1]:
+    d.append(dw.Ellipse(HCX + sx*(HW+2), HCY+8, 11, 20,
+                         fill=_SKIN, stroke=_SKND, stroke_width=1))
 
-fig.savefig('images/headband.png', dpi=150, bbox_inches='tight', facecolor=BG)
-plt.close()
+# ── Head shape: bezier for natural silhouette ─────────
+def head_path_d():
+    p = dw.Path(fill=_SKIN, stroke=_SKND, stroke_width=1.5)
+    p.M(HCX, HCY - HH)
+    # right side: crown → temple → jaw → chin
+    p.C(HCX+HW*0.62, HCY-HH,       HCX+HW,     HCY-HH*0.32, HCX+HW,     HCY+HH*0.08)
+    p.C(HCX+HW,      HCY+HH*0.52,  HCX+HW*0.6, HCY+HH*0.82, HCX+HW*0.3, HCY+HH)
+    # chin
+    p.C(HCX+HW*0.10, HCY+HH*1.07,  HCX-HW*0.10, HCY+HH*1.07, HCX-HW*0.3, HCY+HH)
+    # left side: jaw → temple → crown
+    p.C(HCX-HW*0.6,  HCY+HH*0.82,  HCX-HW,     HCY+HH*0.52, HCX-HW,     HCY+HH*0.08)
+    p.C(HCX-HW,      HCY-HH*0.32,  HCX-HW*0.62, HCY-HH,      HCX,        HCY-HH)
+    p.Z()
+    return p
+
+# clip path for masking hair to head outline
+clip = dw.ClipPath(id='hd-clip')
+clip.append(head_path_d())
+d.append(clip)
+
+# head fill
+d.append(head_path_d())
+
+# ── Hair: ellipse clipped to head shape ───────────────
+hair_grp = dw.Group(clip_path='url(#hd-clip)')
+hair_grp.append(dw.Ellipse(HCX, HCY - HH*0.38, HW*1.06, HH*0.76, fill=_HAIR))
+d.append(hair_grp)
+
+# re-draw lower face over hair bottom edge
+lower = dw.Path(fill=_SKIN, stroke=_SKND, stroke_width=1.5)
+HAIR_CUT = HCY - HH*0.18   # y where hair ends / face re-appears
+lower.M(HCX - HW*0.98, HAIR_CUT)
+# follow head bezier on left side from HAIR_CUT down to chin, then back up right side
+lower.C(HCX-HW*0.98, HCY-HH*0.05, HCX-HW, HCY+HH*0.2, HCX-HW, HCY+HH*0.08)
+lower.C(HCX-HW, HCY+HH*0.52, HCX-HW*0.6, HCY+HH*0.82, HCX-HW*0.3, HCY+HH)
+lower.C(HCX-HW*0.10, HCY+HH*1.07, HCX+HW*0.10, HCY+HH*1.07, HCX+HW*0.3, HCY+HH)
+lower.C(HCX+HW*0.6, HCY+HH*0.82, HCX+HW, HCY+HH*0.52, HCX+HW, HCY+HH*0.08)
+lower.C(HCX+HW, HCY-HH*0.05, HCX+HW*0.98, HAIR_CUT, HCX+HW*0.98, HAIR_CUT)
+lower.Z()
+d.append(lower)
+
+# ── Eyes ──────────────────────────────────────────────
+EYE_Y = HCY + 14
+for ex in [HCX-30, HCX+30]:
+    d.append(dw.Ellipse(ex, EYE_Y, 12, 8, fill='#2C1B0E'))
+    # small white highlight
+    d.append(dw.Ellipse(ex+5, EYE_Y-3, 3, 2, fill='rgba(255,255,255,0.5)'))
+
+# ── Headband: horizontal elastic around head ──────────
+# band centre y sits just at the hairline/forehead boundary
+BAND_CY = HCY - int(HH * 0.60)   # ~233  (forehead level)
+BHW_PX  = 17                      # half-height of band in pixels
+
+# half-width of head at band top/bottom/centre (ellipse approximation)
+def hw_at(y):
+    dy = (y - HCY) / HH
+    return HW * (1 - dy*dy)**0.5 if abs(dy) < 1 else 0
+
+xc = hw_at(BAND_CY);       xwt = hw_at(BAND_CY - BHW_PX);  xwb = hw_at(BAND_CY + BHW_PX)
+
+# drop-shadow
+shp = dw.Path(fill='rgba(0,0,0,0.10)')
+shp.M(HCX-xwt+3, BAND_CY-BHW_PX+4).L(HCX+xwt+3, BAND_CY-BHW_PX+4)
+shp.L(HCX+xwb+3, BAND_CY+BHW_PX+4).L(HCX-xwb+3, BAND_CY+BHW_PX+4).Z()
+d.append(shp)
+
+# band front face (trapezoid)
+bp = dw.Path(fill=_NAVY)
+bp.M(HCX-xwt, BAND_CY-BHW_PX).L(HCX+xwt, BAND_CY-BHW_PX)
+bp.L(HCX+xwb, BAND_CY+BHW_PX).L(HCX-xwb, BAND_CY+BHW_PX).Z()
+d.append(bp)
+
+# top-edge highlight strip
+d.append(dw.Line(HCX-xwt+2, BAND_CY-BHW_PX+5, HCX+xwt-2, BAND_CY-BHW_PX+5,
+                  stroke='rgba(255,255,255,0.22)', stroke_width=2))
+
+# side caps (half-ellipses suggesting wrap-around)
+for sx in [-1, 1]:
+    cap_cx = HCX + sx * xc
+    # semi-circle cap, slightly squashed
+    cap = dw.Path(fill=_NAVY, fill_opacity=0.65)
+    if sx > 0:
+        cap.M(cap_cx, BAND_CY-BHW_PX).A(13, BHW_PX, 0, 0, 1, cap_cx, BAND_CY+BHW_PX).Z()
+    else:
+        cap.M(cap_cx, BAND_CY-BHW_PX).A(13, BHW_PX, 0, 0, 0, cap_cx, BAND_CY+BHW_PX).Z()
+    d.append(cap)
+
+# ── Callout helper ────────────────────────────────────
+def sv_callout(d, dot_x, dot_y, lx, ly, label, sub, fc, ec, dot_r=8):
+    # dashed line
+    d.append(dw.Line(dot_x, dot_y, lx, ly,
+                      stroke=ec, stroke_width=1.2,
+                      stroke_dasharray='5,4', stroke_opacity=0.65))
+    # dot on band
+    d.append(dw.Circle(dot_x, dot_y, dot_r, fill=ec, stroke=_WHITE, stroke_width=1.5))
+    # label box
+    BW, BH = 86, 34
+    d.append(dw.Rectangle(lx-BW//2, ly-BH//2, BW, BH, rx=6, ry=6,
+                            fill=fc, stroke=ec, stroke_width=1.5))
+    d.append(dw.Text(label, font_size=11, x=lx, y=ly - (4 if sub else 0),
+                      fill=_WHITE, text_anchor='middle', font_weight='bold',
+                      font_family='sans-serif'))
+    if sub:
+        d.append(dw.Text(sub, font_size=8, x=lx, y=ly+10,
+                          fill=_WHITE, text_anchor='middle',
+                          font_family='sans-serif', fill_opacity=0.85))
+
+# MAX30102 — forehead centre
+sv_callout(d, HCX+12, BAND_CY, 385, 95, 'MAX30102', 'SpO2 & HR',    _NAVY, _TEAL)
+# MPU-6050 — top of band (hairline)
+sv_callout(d, HCX-12, BAND_CY-BHW_PX, 130, 55, 'MPU-6050', 'Gyro & Accel', _NAVY, _TEAL)
+# Bone Conduction — left temple
+sv_callout(d, int(HCX-xc), BAND_CY, 68, BAND_CY, 'Bone Cond.', 'Speaker', '#7A4500', _AMBER)
+# ESP32 — right side
+sv_callout(d, int(HCX+xc), BAND_CY, 452, BAND_CY, 'ESP32', 'MCU & Radio', _BLUE, _MID)
+
+# title
+d.append(dw.Text('Wearable Headband', font_size=15, x=W//2, y=H-18,
+                  fill=_NAVY, text_anchor='middle', font_weight='bold',
+                  font_family='sans-serif'))
+
+d.save_png('images/headband.png')
 print('✓ headband.png')
 
 
@@ -198,29 +337,18 @@ ax.add_patch(FancyBboxPatch((0.7, 0.9), 6.1, 2.5,
                              facecolor='#BFDBFE', edgecolor=MID + '33', lw=1,
                              zorder=2))
 
-# Patient head
-ax.add_patch(Circle((2.1, 3.75), 0.6, facecolor='#FDE68A',
-                    edgecolor='#D97706', lw=1.5, zorder=4))
+# ── Patient: head on pillow, body under covers ────────────────
+hx, hy, hr = 2.1, 3.7, 0.42   # head centre + radius
 
-# Headband on patient
-ax.add_patch(Arc((2.1, 3.75), 1.45, 1.1, angle=0,
-                 theta1=15, theta2=165, color=NAVY, lw=3.5, zorder=5))
+# Head (skin-toned circle)
+ax.add_patch(Circle((hx, hy), hr, facecolor='#FDDBB4',
+                    edgecolor='#C9884E', lw=1.5, zorder=4))
 
-# Tiny sensor on headband
-ax.add_patch(FancyBboxPatch((1.62, 4.35), 0.96, 0.42,
-                             boxstyle='round,pad=0.04',
-                             facecolor=BLUE, edgecolor=WHITE, lw=0.8, zorder=6))
-ax.text(2.1, 4.56, 'sensor', color=WHITE, fontsize=4.5,
-        ha='center', va='center', zorder=7)
-
-# Traditional wires (the "problem")
-for angle, ln in [(220, 1.5), (270, 1.3), (320, 1.6)]:
-    rad = np.radians(angle)
-    ax.plot([2.1, 2.1 + ln * np.cos(rad)],
-            [3.15, 3.15 + ln * np.sin(rad)],
-            color=RED, lw=1.5, ls='--', alpha=0.5, zorder=3)
-ax.text(2.1, 1.2, 'intrusive wires', color=RED, fontsize=5,
-        ha='center', alpha=0.65)
+# Headband — horizontal line across the head at forehead level
+band_y = hy + hr * 0.28
+band_hw = np.sqrt(max(0.0, hr**2 - (band_y - hy)**2))
+ax.plot([hx - band_hw, hx + band_hw], [band_y, band_y],
+        color=NAVY, lw=4.0, solid_capstyle='round', zorder=6)
 
 # Bedside table + gateway
 ax.add_patch(FancyBboxPatch((7.5, 0.8), 2.1, 3.6,
@@ -241,14 +369,9 @@ ax.text(8.55, 2.15, 'Gateway', color=TEAL, fontsize=5.5,
         ha='center', va='center', fontweight='bold')
 
 # Cloud
-for (cx, cy, cr) in [(7.1, 8.2, 0.55), (7.75, 8.55, 0.7), (8.45, 8.2, 0.55)]:
-    ax.add_patch(Circle((cx, cy), cr, facecolor=TEAL + '44',
-                        edgecolor='none', zorder=2))
-ax.add_patch(FancyBboxPatch((6.6, 7.8), 2.3, 0.5,
-                             boxstyle='square,pad=0',
-                             facecolor=TEAL + '44', edgecolor='none', zorder=1))
-ax.text(7.7, 8.2, 'Cloud', color=TEAL, fontsize=6.5,
-        ha='center', va='center', fontweight='bold', zorder=3)
+draw_cloud(ax, cx=7.75, cy=8.3, w=2.6, h=1.4, fc=TEAL + '44', zorder=2)
+ax.text(7.75, 8.2, 'Cloud', color=TEAL, fontsize=6.5,
+        ha='center', va='center', fontweight='bold', zorder=4)
 
 # Doctor dashboard (top left)
 ax.add_patch(FancyBboxPatch((0.5, 6.0), 4.5, 3.5,
@@ -266,7 +389,7 @@ ax.text(2.75, 9.0, "Doctor's Dashboard", color=NAVY, fontsize=5.5,
         ha='center', va='center', fontweight='bold')
 
 # Arrows
-arrow(ax, 3.5, 4.5, 7.55, 3.3, BLUE, 1.5, rad=-0.2, label='ESP-NOW')
+arrow(ax, 2.6, 3.7, 7.55, 3.3, BLUE, 1.5, rad=-0.20, label='ESP-NOW')
 arrow(ax, 8.55, 4.2, 7.9, 7.6, TEAL, 1.5, rad=0.25, label='MQTT')
 arrow(ax, 7.1, 8.4, 5.1, 8.6, MID, 1.2, rad=0.1, label='API')
 
