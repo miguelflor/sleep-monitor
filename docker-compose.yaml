@@ -1,0 +1,85 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto.passwd:/mosquitto/config/passwd
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    restart: unless-stopped
+
+  questdb:
+    image: questdb/questdb:8.2.1
+    container_name: questdb
+    ports:
+      - "9000:9000"   # Web console + REST API
+      - "9009:9009"   # InfluxDB line protocol
+      - "8812:8812"   # PostgreSQL wire protocol
+    volumes:
+      - questdb_data:/var/lib/questdb
+    environment:
+      - QDB_TELEMETRY_ENABLED=false
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sleep}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sleep}
+      POSTGRES_DB: ${POSTGRES_DB:-sleep_monitor}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sleep}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./src/api
+      dockerfile: Dockerfile
+    container_name: api
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-sleep}:${POSTGRES_PASSWORD:-sleep}@postgres:5432/${POSTGRES_DB:-sleep_monitor}
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+      MQTT_USER: ${MQTT_USER:-api}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-changeme}
+      RUST_LOG: ${RUST_LOG:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "5173:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  questdb_data:
+  postgres_data:
