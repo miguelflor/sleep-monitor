@@ -16,9 +16,9 @@ services:
     image: questdb/questdb:8.2.1
     container_name: questdb
     ports:
-      - "9000:9000"   # Web console + REST API
-      - "9009:9009"   # InfluxDB line protocol
-      - "8812:8812"   # PostgreSQL wire protocol
+      - "9000:9000" # Web console + REST API
+      - "9009:9009" # InfluxDB line protocol
+      - "8812:8812" # PostgreSQL wire protocol
     volumes:
       - questdb_data:/var/lib/questdb
     environment:
