@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/colors.dart';
-import 'package:mobile/list_scan.dart';
+import 'package:mobile/pages/device_list_page.dart';
 import 'package:mobile/widgets/big_round_button.dart';
 
-class MyHomePage extends StatelessWidget {
-  const MyHomePage({super.key});
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -12,16 +12,14 @@ class MyHomePage extends StatelessWidget {
       backgroundColor: MyColors.bg,
       body: Center(
         child: BigRoundButton(
-          onPressed: () {
-            Navigator.of(context).push(_toListRoute());
-          },
+          onPressed: () => Navigator.of(context).push(_toDeviceListRoute()),
         ),
       ),
     );
   }
 }
 
-Route<void> _toListRoute() {
+Route<void> _toDeviceListRoute() {
   return PageRouteBuilder(
     pageBuilder: (context, animation, secondaryAnimation) =>
         const DeviceListPage(),
@@ -38,7 +36,7 @@ Route<void> _toListRoute() {
 
       return Stack(
         children: [
-          SlideTransition(position: slideOut, child: const MyHomePage()),
+          SlideTransition(position: slideOut, child: const HomePage()),
           SlideTransition(position: slideIn, child: child),
         ],
       );
