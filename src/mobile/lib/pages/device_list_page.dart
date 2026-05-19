@@ -22,6 +22,7 @@ class _DeviceListPageState extends State<DeviceListPage>
 
   List<BluetoothDiscoveryResult> _devices = [];
   bool _isScanning = false;
+  final Set<String> _seenAddresses = {};
 
   @override
   void initState() {
@@ -37,7 +38,10 @@ class _DeviceListPageState extends State<DeviceListPage>
 
     _bt.scanningStream.listen((scanning) {
       if (!mounted) return;
-      setState(() => _isScanning = scanning);
+      setState(() {
+        _isScanning = scanning;
+        if (scanning) _seenAddresses.clear();
+      });
       if (scanning) {
         _radarController.repeat();
       } else {
@@ -131,11 +135,16 @@ class _DeviceListPageState extends State<DeviceListPage>
                       vertical: 8,
                     ),
                     itemCount: _devices.length,
-                    itemBuilder: (context, index) => DeviceTile(
-                      key: ValueKey(_devices[index].device.address),
-                      result: _devices[index],
-                      index: index,
-                    ),
+                    itemBuilder: (context, index) {
+                      final address = _devices[index].device.address;
+                      final isNew = _seenAddresses.add(address); // add() returns true if it was not already present
+                      return DeviceTile(
+                        key: ValueKey(address),
+                        result: _devices[index],
+                        index: index,
+                        animate: isNew,
+                      );
+                    },
                   ),
           ),
         ],

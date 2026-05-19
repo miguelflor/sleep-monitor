@@ -6,8 +6,9 @@ import 'package:mobile/widgets/rssi_indicator.dart';
 class DeviceTile extends StatefulWidget {
   final BluetoothDiscoveryResult result;
   final int index;
+  final bool animate;
 
-  const DeviceTile({super.key, required this.result, required this.index});
+  const DeviceTile({super.key, required this.result, required this.index, this.animate = true});
 
   @override
   State<DeviceTile> createState() => _DeviceTileState();
@@ -32,9 +33,13 @@ class _DeviceTileState extends State<DeviceTile>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    Future.delayed(Duration(milliseconds: widget.index * 40), () {
-      if (mounted) _controller.forward();
-    });
+    if (widget.animate) {
+      Future.delayed(Duration(milliseconds: widget.index * 40), () {
+        if (mounted) _controller.forward();
+      });
+    } else {
+      _controller.value = 1.0;
+    }
   }
 
   @override
