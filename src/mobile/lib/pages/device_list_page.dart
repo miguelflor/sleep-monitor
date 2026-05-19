@@ -5,6 +5,7 @@ import 'package:mobile/services/bluetooth_service.dart';
 import 'package:mobile/widgets/device_tile.dart';
 import 'package:mobile/widgets/empty_scan_state.dart';
 import 'package:mobile/widgets/scan_status_bar.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class DeviceListPage extends StatefulWidget {
   const DeviceListPage({super.key});
@@ -45,6 +46,35 @@ class _DeviceListPageState extends State<DeviceListPage>
       }
     });
 
+    _requestPermissionsAndScan();
+  }
+
+  Future<void> _requestPermissionsAndScan() async {
+    final statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+    ].request();
+
+    final denied = statuses.values.any(
+      (s) => s.isDenied || s.isPermanentlyDenied,
+    );
+
+    if (!mounted) return;
+
+    if (denied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bluetooth and location permissions are required to scan for devices.'),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: openAppSettings,
+          ),
+        ),
+      );
+      return;
+    }
+
     _bt.startScan();
   }
 
@@ -83,7 +113,7 @@ class _DeviceListPageState extends State<DeviceListPage>
                   Icons.radar,
                   color: _isScanning ? MyColors.primary : Colors.white38,
                 ),
-                onPressed: _isScanning ? null : _bt.startScan,
+                onPressed: _isScanning ? null : _requestPermissionsAndScan,
               ),
             ),
           ),
