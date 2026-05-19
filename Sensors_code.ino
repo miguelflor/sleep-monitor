@@ -16,23 +16,47 @@
 #define MPU_ADDR  0x68
 
 // ---------- Audio ----------
-#define SAMPLE_RATE       16000
-#define BEEP_FREQ_HZ        880
-#define BEEP_DURATION_MS     80
-#define BEEP_AMPLITUDE     8000
+#define SAMPLE_RATE     16000
 
 // ---------- BPM history (last 60 s) ----------
-#define BPM_HISTORY_SIZE 256        // generous: 256 beats covers >60 s even at 240 BPM
+#define BPM_HISTORY_SIZE 256
 struct BeatRecord { unsigned long t; float bpm; };
 BeatRecord bpmHistory[BPM_HISTORY_SIZE];
-int   bpmHead   = 0;                // next write slot
-int   bpmCount  = 0;                // valid entries currently stored
+int   bpmHead   = 0;
+int   bpmCount  = 0;
 
 // ---------- Motion detection ----------
-float motionLevel   = 0.0f;         // smoothed |a - 1g|, in g
-const float MOTION_ALPHA     = 0.15f;   // low-pass smoothing factor (0..1)
-const float MOTION_THRESHOLD = 0.18f;   // g; above this = "moving"
+float motionLevel   = 0.0f;
+const float MOTION_ALPHA     = 0.15f;
+const float MOTION_THRESHOLD = 0.035f;
 bool  isMoving      = false;
+
+// ---------- Deep sleep detection ----------
+const float    BASELINE_LEARN_SECONDS = 120.0f;   // first 2 min: learn awake HR
+const float    HR_DROP_FRACTION       = 0.90f;    // current HR < 90% of baseline = "low"
+const float    STILLNESS_THRESHOLD    = 0.03f;    // motionLevel below this = "still"
+const uint32_t SUSTAINED_MS           = 15000UL;  // hold conditions 60 s before noise
+const uint32_t RELEASE_GRACE_MS       = 5000UL;  // keep playing 30 s after break
+
+float    awakeBaseline   = 0.0f;
+bool     baselineLocked  = false;
+uint32_t startupMs       = 0;
+uint32_t deepStartedMs   = 0;
+uint32_t lastDeepMs      = 0;
+
+float baselineSumBpm     = 0.0f;
+int   baselineSamples    = 0;
+
+// ---------- Pink noise (Voss-McCartney) ----------
+#define PINK_OCTAVES 8
+int32_t  pinkRows[PINK_OCTAVES] = {0};
+int32_t  pinkRunningSum         = 0;
+uint32_t pinkCounter            = 0;
+
+const int16_t PINK_AMPLITUDE_TARGET = 4000;   // adjust to taste (max 32767)
+const float   FADE_STEP             = 50.0f; // amplitude change per chunk
+float         currentAmplitude      = 0.0f;
+bool          noiseActive           = false;
 
 // ---------- Sensors ----------
 MAX30105 hr;
@@ -70,24 +94,49 @@ void setupI2S() {
   i2s_zero_dma_buffer(I2S_NUM_0);
 }
 
-void playBeep(int freqHz, int durationMs) {
-  const int totalSamples = (SAMPLE_RATE * durationMs) / 1000;
-  const int CHUNK = 128;
+// ---------- Pink noise sample generator ----------
+int16_t nextPinkSample(int16_t amplitude) {
+  pinkCounter++;
+  int bit = 0;
+  uint32_t n = pinkCounter;
+  while ((n & 1) == 0 && bit < PINK_OCTAVES - 1) { n >>= 1; bit++; }
+
+  int32_t newVal = (int32_t)(esp_random() & 0xFFFF) - 0x8000;
+  pinkRunningSum -= pinkRows[bit];
+  pinkRows[bit]   = newVal;
+  pinkRunningSum += newVal;
+
+  int32_t white  = (int32_t)(esp_random() & 0xFFFF) - 0x8000;
+  int32_t sample = (pinkRunningSum + white) / (PINK_OCTAVES + 1);
+
+  return (int16_t)((sample * amplitude) / 0x8000);
+}
+
+// ---------- Stream one chunk of audio to I2S ----------
+void streamPinkChunk() {
+  const int CHUNK = 256;
   int16_t buf[CHUNK];
   size_t written;
-  int sampleIdx = 0;
 
-  while (sampleIdx < totalSamples) {
-    int n = min(CHUNK, totalSamples - sampleIdx);
-    for (int i = 0; i < n; i++) {
-      float t = (float)(sampleIdx + i) / SAMPLE_RATE;
-      buf[i] = (int16_t)(sinf(2.0f * (float)M_PI * freqHz * t) * BEEP_AMPLITUDE);
-    }
-    i2s_write(I2S_NUM_0, buf, n * sizeof(int16_t), &written, portMAX_DELAY);
-    sampleIdx += n;
+  // Smooth amplitude toward target (fade in/out)
+  float target = noiseActive ? (float)PINK_AMPLITUDE_TARGET : 0.0f;
+  if (currentAmplitude < target) {
+    currentAmplitude = fminf(currentAmplitude + FADE_STEP, target);
+  } else if (currentAmplitude > target) {
+    currentAmplitude = fmaxf(currentAmplitude - FADE_STEP, target);
   }
-  memset(buf, 0, sizeof(buf));
-  i2s_write(I2S_NUM_0, buf, sizeof(buf), &written, portMAX_DELAY);
+
+  if (currentAmplitude < 1.0f) {
+    // Inaudible dither — keeps the amp out of idle and prevents buzz
+    for (int i = 0; i < CHUNK; i++) {
+      buf[i] = (int16_t)((esp_random() & 0x03) - 2);   // ±2 LSB, ~−84 dB
+    }
+  } else {
+    for (int i = 0; i < CHUNK; i++) {
+      buf[i] = nextPinkSample((int16_t)currentAmplitude);
+    }
+  }
+  i2s_write(I2S_NUM_0, buf, sizeof(buf), &written, 0);  // non-blocking
 }
 
 // ---------- BPM history helpers ----------
@@ -102,9 +151,8 @@ float averageBpm60s(unsigned long now) {
   float sum = 0.0f;
   int   n   = 0;
   for (int i = 0; i < bpmCount; i++) {
-    // walk backwards from the most recent entry
     int idx = (bpmHead - 1 - i + BPM_HISTORY_SIZE) % BPM_HISTORY_SIZE;
-    if (now - bpmHistory[idx].t > 60000UL) break;   // older than 60 s
+    if (now - bpmHistory[idx].t > 60000UL) break;
     sum += bpmHistory[idx].bpm;
     n++;
   }
@@ -115,13 +163,14 @@ float averageBpm60s(unsigned long now) {
 void updateMotion() {
   if (!mpuOk) return;
 
-  xyzFloat acc = mpu.getGValues();   // returns acceleration in g
+  xyzFloat acc = mpu.getGValues();
   float mag = sqrtf(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-  float deviation = fabsf(mag - 1.0f);                          // remove gravity
+  float deviation = fabsf(mag - 1.0f);
   motionLevel = MOTION_ALPHA * deviation + (1.0f - MOTION_ALPHA) * motionLevel;
   isMoving = (motionLevel > MOTION_THRESHOLD);
 }
 
+// ---------- Setup ----------
 void setup() {
   Serial.begin(115200);
   delay(200);
@@ -138,24 +187,34 @@ void setup() {
   hr.setPulseAmplitudeIR(0x50);
 
   // ---- MPU6500/9250 ----
-  mpuOk = mpu.init();
+  mpu.init();
+  delay(200);
+  mpu.setAccRange(MPU9250_ACC_RANGE_4G);
+  mpu.setGyrRange(MPU9250_GYRO_RANGE_500);
+  mpu.setSampleRateDivider(5);
+  mpu.setAccDLPF(MPU9250_DLPF_6);
+  mpu.setGyrDLPF(MPU9250_DLPF_6);
+  delay(50);
+
+  xyzFloat test = mpu.getGValues();
+  float testMag = sqrtf(test.x * test.x + test.y * test.y + test.z * test.z);
+  mpuOk = (testMag > 0.5f && testMag < 1.5f);
+
   if (mpuOk) {
-    delay(1000);
-    mpu.autoOffsets();
-    mpu.setAccRange(MPU9250_ACC_RANGE_4G);
-    mpu.setGyrRange(MPU9250_GYRO_RANGE_500);
-    mpu.setSampleRateDivider(5);
-    mpu.setAccDLPF(MPU9250_DLPF_6);
-    mpu.setGyrDLPF(MPU9250_DLPF_6);
+    Serial.println("MPU ready");
   } else {
-    Serial.println("MPU init failed (motion detection disabled)");
+    Serial.printf("MPU init failed (mag=%.2f g) — motion detection disabled\n", testMag);
   }
 
+  // ---- I2S ----
   setupI2S();
 
-  Serial.println("IR,BPM,Avg60,Motion_g,Moving");
+  startupMs = millis();
+  Serial.println("Pink noise sleep aid ready.");
+  Serial.println("Learning awake heart-rate baseline for 2 minutes...");
 }
 
+// ---------- Loop ----------
 void loop() {
   unsigned long now = millis();
   long ir = hr.getIR();
@@ -165,27 +224,75 @@ void loop() {
     unsigned long delta = now - lastBeatMs;
     lastBeatMs = now;
 
-    if (delta > 250 && delta < 2000) {          // physiologically plausible interval
+    if (delta > 250 && delta < 2000) {
       float instantBpm = 60000.0f / (float)delta;
-      if (instantBpm >= 40.0f && instantBpm <= 70.0f) {   // accept 40–70 only
+      if (instantBpm >= 45.0f && instantBpm <= 65.0f) {
         bpm = instantBpm;
         pushBpm(instantBpm, now);
+
+        // Accumulate baseline during the learning window
+        if (!baselineLocked && (now - startupMs) < (BASELINE_LEARN_SECONDS * 1000.0f)) {
+          baselineSumBpm += instantBpm;
+          baselineSamples++;
+        }
       }
     }
-    playBeep(BEEP_FREQ_HZ, BEEP_DURATION_MS);
   }
 
-  // ---- Motion (poll at ~50 Hz) ----
+  // ---- Lock baseline when learning window ends ----
+  if (!baselineLocked && (now - startupMs) >= (BASELINE_LEARN_SECONDS * 1000.0f)) {
+    if (baselineSamples > 10) {
+      awakeBaseline = baselineSumBpm / baselineSamples;
+      Serial.printf("Baseline locked: %.1f BPM (%d samples)\n",
+                    awakeBaseline, baselineSamples);
+    } else {
+      awakeBaseline = 65.0f;
+      Serial.println("Baseline learning failed (too few beats); default 65 BPM");
+    }
+    baselineLocked = true;
+  }
+
+  // ---- Motion polling (~50 Hz) ----
   if (now - lastMotionMs >= 20) {
     lastMotionMs = now;
     updateMotion();
   }
 
-  // ---- Serial output (10 Hz) ----
-  if (now - lastPrintMs >= 100) {
+  // ---- Deep sleep state machine ----
+  if (baselineLocked) {
+    float avg60 = averageBpm60s(now);
+    bool hrLow       = (avg60 > 0.0f) && (avg60 < awakeBaseline * HR_DROP_FRACTION);
+    bool stillEnough = (motionLevel < STILLNESS_THRESHOLD);
+    bool conditionsMet = hrLow && stillEnough;
+
+    if (conditionsMet) {
+      if (deepStartedMs == 0) deepStartedMs = now;
+      lastDeepMs = now;
+
+      if (now - deepStartedMs >= SUSTAINED_MS) {
+        noiseActive = true;
+      }
+    } else {
+      if (noiseActive && (now - lastDeepMs > RELEASE_GRACE_MS)) {
+        noiseActive = false;
+      }
+      if (now - lastDeepMs > RELEASE_GRACE_MS) {
+        deepStartedMs = 0;
+      }
+    }
+  }
+
+  // ---- Feed I2S continuously ----
+  streamPinkChunk();
+
+  // ---- Serial output (1 Hz) ----
+  if (now - lastPrintMs >= 1000) {
     lastPrintMs = now;
     float avg60 = averageBpm60s(now);
-    Serial.printf("%ld,%.1f,%.1f,%.3f,%d\n",
-                  ir, bpm, avg60, motionLevel, isMoving ? 1 : 0);
+    Serial.printf("BPM=%.1f  Avg60=%.1f  Base=%.1f  Motion=%.3f  Moving=%d  Noise=%s  Amp=%.0f\n",
+                  bpm, avg60, awakeBaseline, motionLevel,
+                  isMoving ? 1 : 0,
+                  noiseActive ? "ON" : "off",
+                  currentAmplitude);
   }
 }
